@@ -40,11 +40,12 @@ client.on('ready', () => {
         `${msg.class} / ${msg.instance} / ${sender}`);
     if (ignore) return;
     for (const channel of matching) {
+      const message = channel.name == msg.instance ? msg.message : "-i " +  msg.instance + "\n" + msg.message;
       const webhook = await channel.fetchWebhooks()
           .then(hook => hook.first() || channel.createWebhook(msg.instance))
           .catch(err => console.error(err));
-      if (webhook) webhook.send(msg.message, {username: sender, split: true});
-      else channel.send(msg.message, {split: true});
+      if (webhook) webhook.send(message, {username: sender, split: true});
+      else channel.send(message, {split: true});
     }
   });
 });
