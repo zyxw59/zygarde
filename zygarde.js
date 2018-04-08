@@ -30,7 +30,7 @@ client.on('ready', () => {
           if (d == guild.name) {
             const channels = Array.from(guild.channels.values());
             const channel = channels
-                .find(chan => chan.type == 'text' && chan.name == msg.instance)
+                .find(chan => chan.type == 'text' && chan.name == msg.instance.split('.')[0])
                 || guild.systemChannel
                 || channels.find(chan => chan.type == 'text');
             if (channel) matching.push(channel);
