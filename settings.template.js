@@ -1,9 +1,16 @@
 module.exports.discordToken = '???';
 
-// Each element of this list is an array. The first element is the zephyr class
-// name and the second is the display name (not the numeric code) of the Discord
-// server. If there is a third element and it is '>', the connection will be
-// one-directional from zephyr to Discord, and vice versa if it is '<'.
+// Each element of this list describes the configuration for
+// a single Discord server / zephyr class pairing.
 module.exports.classes = [
-  ['zephyr-class', 'Discord Server'],
+  {
+    // Main zephyr class name
+    zephyrClass: 'zephyr-class',
+    // The display name (not the numeric code) of the Discord server
+    discordServer: 'Discord Server',
+    // Optional: connection direction.
+    //   '>' means one-directional from zephyr to Discord
+    //   '<' means one-directional from Discord to zephyr
+    // connectionDirection: '<',
+  },
 ];

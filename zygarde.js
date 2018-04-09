@@ -5,14 +5,14 @@ const settings = require(`${process.cwd()}/settings`);
 
 const client = new discord.Client({disableEveryone: true});
 zephyr.subscribe(
-    settings.classes.map(([z, d]) => [z, '*', '*']),
+    settings.classes.map(({zephyrClass}) => [zephyrClass, '*', '*']),
     err => { if (err) console.error(err); });
 
 client.on('ready', () => {
   for (const guild of client.guilds.values()) {
     const matching = settings.classes
-        .filter(([z, d]) => d == guild.name)
-        .map(([z, d]) => z);
+        .filter(({discordServer}) => discordServer == guild.name)
+        .map(({zephyrClass}) => zephyrClass);
     const nickname = matching.length ? '-c ' + matching.join(', ') : '';
     if (nickname ? (guild.me.nickname != nickname) : guild.me.nickname)
       guild.me.setNickname(nickname).catch(err => console.error(err));
@@ -24,10 +24,10 @@ client.on('ready', () => {
     if (!msg.message.trim() || msg.opcode) return;
     const sender = msg.sender.split('@')[0];
     const matching = [];
-    for (const [z, d, c] of settings.classes)
-      if (z == msg.class && c != '<')
+    for (const {zephyrClass, discordServer, connectionDirection} of settings.classes)
+      if (zephyrClass == msg.class && connectionDirection != '<')
         for (const guild of client.guilds.values())
-          if (d == guild.name) {
+          if (discordServer == guild.name) {
             const channels = Array.from(guild.channels.values());
             const channel = channels
                 .find(chan => chan.type == 'text' && chan.name == msg.instance.split('.')[0])
@@ -40,7 +40,7 @@ client.on('ready', () => {
         `${msg.class} / ${msg.instance} / ${sender}`);
     if (ignore) return;
     for (const channel of matching) {
-      const message = channel.name == msg.instance ? msg.message : "-i " +  msg.instance + "\n" + msg.message;
+      const message = channel.name == msg.instance ? msg.message : "-i " + msg.instance + "\n" + msg.message;
       const webhook = await channel.fetchWebhooks()
           .then(hook => hook.first() || channel.createWebhook(msg.instance))
           .catch(err => console.error(err));
@@ -59,9 +59,9 @@ client.on('message', async msg => {
   if (msg.author.bot || !msg.guild) return;
   const sender = msg.member ? msg.member.displayName : msg.author.username;
   const matching = [];
-  for (const [z, d, c] of settings.classes)
-    if (d == msg.guild.name && c != '>')
-      matching.push(z);
+  for (const {zephyrClass, discordServer, connectionDirection} of settings.classes)
+    if (discordServer == msg.guild.name && connectionDirection != '>')
+      matching.push(zephyrClass);
   const ignore = matching.length ? '' : '\x1b[31mignoring\x1b[0m ';
   console.log(`\x1b[34;1mDiscord:\x1b[0m ${ignore}` +
       `${msg.guild.name} / ${msg.channel.name} / ${sender}`);
