@@ -5,8 +5,8 @@ if [ ! -d "$DIR/node" ]; then
   echo "Adding node and node modules from dannybd's locker..."
   echo "...this can take a while"
   echo "(...it's easier this way I promise)"
-  rsync --info=progress2 -r /mit/dannybd/zygarde/node/* $DIR/node/
-  rsync --info=progress2 -r /mit/dannybd/zygarde/node_modules/* $DIR/node_modules/
+  rsync --info=progress2 -r /mit/dannybd/scripts/zygarde/node/* $DIR/node/
+  rsync --info=progress2 -r /mit/dannybd/scripts/zygarde/node_modules/* $DIR/node_modules/
   echo "Done!"
 fi
 
