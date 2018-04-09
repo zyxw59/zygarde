@@ -63,14 +63,14 @@ To Zephyr:
     Not much, you?
 ```
 
-wbrogers' reply from Discord ends up cross zephyr instances! To fix this, wbrogers can use that same tag:
+Oh no, wbrogers' reply from Discord ends up cross zephyr instances, at `-i general`! To prevent this, wbrogers can use that same tag:
 ```
 From Discord:
   foobar / general / wbrogers
-    [-i hello] Not much, you?
+    [-i hello] (i-mix) Not much, you?
 To Zephyr:
   foobar / hello / wbrogers
-    Not much, you?
+    (i-mix) Not much, you?
 ```
 
 The instance tag is silently stripped from the reply.
@@ -94,7 +94,7 @@ To Zephyr:
     Quiet, you.
 ```
 
-Since have the full classname is kind of tedious, in `settings.js` you can configure per-related-class tags, which can act as shorthand:
+Since having the full classname is kind of tedious, in `settings.js` you can configure per-related-class tags, which can act as shorthand:
 ```
 // settings.js
 
