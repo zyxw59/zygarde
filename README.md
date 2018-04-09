@@ -2,6 +2,8 @@
 
 <img src="https://cdn.bulbagarden.net/upload/9/93/718Zygarde-Cell.png" width="200">
 
+## Installation
+
 Running from Athena is probably easiest. If you don't have sustained Athena access, ask dannybd to add your server + classes to his config file.
 
 Adapted from justinej's notes:
@@ -30,6 +32,104 @@ To set up `settings.js`, follow the instructions inside it.
 ```
 nano settings.js # Control+X, then press Y to save and exit
 ```
+
+And to run everything, call `./run`.
+
+## Usage
+
+Once you've set everything up, you should see zephyr classes (and their related classes) map into your Discord server.
+
+### Class & Instance Tags
+Because Discord doesn't map 1:1 with Zephyr's classes and instances, messages within Discord can appear with prefix tags which indicate where they map to. These are both read and write: if you compose a message in Discord with these tags, your message will appear on the corresponding class and instance in zephyrland, as long as the class you mentioned is a related class (think unclass or .d class)
+
+Examples (assume we're linking `-c foobar` and its related classes `unfoobar` and `foobar.d`):
+```
+From Zephyr:
+  foobar / hello / aphacker
+    What's up?
+To Discord:
+  foobar / general / aphacker
+    [-i hello] What's up?
+```
+
+There wasn't a corresponding `hello` channel on the Discord server, so aphacker's message ended up in `#general`, but prefixed with an instance tag.
+
+```
+From Discord:
+  foobar / general / wbrogers
+    Not much, you?
+To Zephyr:
+  foobar / general / wbrogers
+    Not much, you?
+```
+
+wbrogers' reply from Discord ends up cross zephyr instances! To fix this, wbrogers can use that same tag:
+```
+From Discord:
+  foobar / general / wbrogers
+    [-i hello] Not much, you?
+To Zephyr:
+  foobar / hello / wbrogers
+    Not much, you?
+```
+
+The instance tag is silently stripped from the reply.
+
+Related classes behave similarly, with a class tag which MUST precede the instance tag (if there is an instance tag):
+
+```
+From Zephyr:
+  unfoobar / hello / aphacker
+    Having an easy time with your fancy new chat client, aren't you?
+To Discord:
+  foobar / general / aphacker
+    [-c unfoobar] [-i hello] Having an easy time with your fancy new chat client, aren't you?
+
+
+From Discord:
+  foobar / general / wbrogers
+    [-c unfoobar] [-i hello] Quiet, you.
+To Zephyr:
+  unfoobar / hello / wbrogers
+    Quiet, you.
+```
+
+Since have the full classname is kind of tedious, in `settings.js` you can configure per-related-class tags, which can act as shorthand:
+```
+// settings.js
+
+module.exports.classes = [
+  {
+    zephyrClass: 'foobar',
+    discordServer: 'foobar',
+    zephyrRelatedClasses: {
+      'unfoobar': 'un',
+      'foobar.d': '.d'
+    },
+  },
+];
+```
+
+With that in place, you can replace the `-c` tag with the shorthand tag:
+
+```
+From Zephyr:
+  unfoobar / hello.d / aphacker
+    Are we going to have all of our discussions saved for posterity in this README?
+To Discord:
+  foobar / general / aphacker
+    [un] [-i hello.d] Are we going to have all of our discussions saved for posterity in this README?
+
+
+From Discord:
+  foobar / general / wbrogers
+    [un] [-i hello.d] Probably not, I bet dannybd is getting tired.
+To Zephyr:
+  unfoobar / hello.d / wbrogers
+    Probably not, I bet dannybd is getting tired.
+```
+
+Hopefully you get the idea.
 
 ---------------------------
 
