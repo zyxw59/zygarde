@@ -1,4 +1,39 @@
+# Zygarde: A Discord-to-Zephyr bridge
+
 <img src="https://cdn.bulbagarden.net/upload/9/93/718Zygarde-Cell.png" width="200">
+
+Running from Athena is probably easiest. If you don't have sustained Athena access, ask dannybd to add your server + classes to his config file.
+
+Adapted from justinej's notes:
+
+```
+ssh KERBEROS@apollo-dome-landing.mit.edu
+# Ensure that the script persists even after you exit your terminal
+tmux
+
+# Put Zygarde somewhere
+mkdir -p ~/scripts
+cd ~/scripts
+git clone https://github.com/dannybd/zygarde
+cd zygarde
+```
+
+At this point you can run `./run` and it'll walk you through the remaining steps:
+
+* Porting over of node stuff (using hack copying I'm sorry)
+* Running Zygarde from tmux or screen
+* Adding `settings.js` from a template
+
+It'll also warn you if you fail to set up an authentication token properly.
+
+To set up `settings.js`, follow the instructions inside it.
+```
+nano settings.js # Control+X, then press Y to save and exit
+```
+
+---------------------------
+
+cesium's notes:
 
 This isn't a very good README.
 
@@ -12,3 +47,4 @@ This isn't a very good README.
 - When bridging, all Discord messages from BOTs and all zephyr messages with opcodes are ignored. This prevents loops from forming, but it would also prevent you from chaining bridges or getting other Discord/zephyr bots onto zephyr/Discord, if for some reason you want that.
 - Sent zephyrs have their signature set to an invite link. You can deny the bot the invite permission to disable this. Invites are per-channel, so the link will be different per instance, but they all go to the same Discord server so there's no real benefit to that. The bot will also rename itself in each Discord server on startup according to the corresponding zephyr class; you can rename it manually and it will stick until the bot restarts.
 - The name Zygarde is sort of the closest thing that vaguely sounds like Discord and has a Z in it. Last time I got to use Zirconium, but I guess people don't use IRC anymore.
+

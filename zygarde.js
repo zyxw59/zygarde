@@ -1,7 +1,7 @@
 const zephyr = require("zephyr");
 const discord = require("discord.js");
 const wordwrap = require("wordwrap")(70);
-const settings = require(require("path").resolve(__dirname, 'settings'));
+const settings = require(require("path").resolve(__dirname, "settings"));
 
 // Validation of settings
 for (const {
@@ -33,6 +33,13 @@ for (const {
     let classTag = zephyrRelatedClasses[relatedClass];
     if (!classTag) {
       continue;
+    }
+    if (classTag[0] === "-") {
+      console.warn(
+        `  !! Warning! zephyrRelatedClasses has a class tag which starts ` +
+          `with a hyphen: ${classTag}, for class ${relatedClass}. ` +
+          `This will cause unexpected behavior: please use a valid tag.`
+      );
     }
     if (classTags.includes(classTag)) {
       console.warn(
@@ -155,10 +162,10 @@ client.on("ready", () => {
 
 client.on("disconnect", evt => {
   console.error(evt);
-  if (evt.reason === 'Authentication failed.') {
+  if (evt.reason === "Authentication failed.") {
     console.warn("\n\n\n");
-    console.warn(`  ${Array(79).join('!')}`);
-    console.warn(`  ${Array(79).join('!')}`);
+    console.warn(`  ${Array(79).join("!")}`);
+    console.warn(`  ${Array(79).join("!")}`);
     console.warn(
       `  !! Warning! Your authentication token appears to be invalid. `
     );
@@ -187,8 +194,8 @@ client.on("disconnect", evt => {
     console.warn(
       `  !! where CLIENT_ID is the "Client ID" from the app that you made.`
     );
-    console.warn(`  ${Array(79).join('!')}`);
-    console.warn(`  ${Array(79).join('!')}`);
+    console.warn(`  ${Array(79).join("!")}`);
+    console.warn(`  ${Array(79).join("!")}`);
     console.warn("\n\n\n");
     process.exit(1);
   }

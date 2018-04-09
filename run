@@ -2,10 +2,11 @@ DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
 
 # Check for node
 if [ ! -d "$DIR/node" ]; then
-  echo "Adding node and node modules from cesium's locker..."
-  echo "(...it's easier this way.)"
-  rsync --info=progress2 -r /mit/cesium/zygarde/node/* $DIR/node/
-  rsync --info=progress2 -r /mit/cesium/zygarde/node_modules/* $DIR/node_modules/
+  echo "Adding node and node modules from dannybd's locker..."
+  echo "...this can take a while"
+  echo "(...it's easier this way I promise)"
+  rsync --info=progress2 -r /mit/dannybd/zygarde/node/* $DIR/node/
+  rsync --info=progress2 -r /mit/dannybd/zygarde/node_modules/* $DIR/node_modules/
   echo "Done!"
 fi
 
