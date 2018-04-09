@@ -3,12 +3,58 @@ const discord = require("discord.js");
 const wordwrap = require("wordwrap")(70);
 const settings = require(`${process.cwd()}/settings`);
 
+// Validation of settings
+for (const {
+  zephyrClass,
+  discordServer,
+  connectionDirection,
+  zephyrRelatedClasses = {}
+} of settings.classes) {
+  if (zephyrClass in zephyrRelatedClasses) {
+    console.log(
+      `  !! Warning! zephyr class ${zephyrClass} ` +
+        `is included with its related classes. ` +
+        `This can cause unexpected behavior.`
+    );
+  }
+  switch (connectionDirection) {
+    case "<":
+    case ">":
+    case undefined:
+      break;
+    default:
+      console.log(
+        `  !! Warning! Connection direction ${connectionDirection} ` +
+          `is invalid. It should either be '<', '>', or missing.`
+      );
+  }
+  const classTags = [];
+  for (const relatedClass in zephyrRelatedClasses) {
+    let classTag = zephyrRelatedClasses[relatedClass];
+    if (!classTag) {
+      continue;
+    }
+    if (classTags.includes(classTag)) {
+      console.log(
+        `  !! Warning! zephyrRelatedClasses has a duplicate class tag: ` +
+          `${classTag}, for class ${relatedClass}. This can cause ` +
+          `unexpected behavior. Please keep the tags distinct.`
+      );
+    }
+    classTags.push(classTag);
+  }
+}
+
 const client = new discord.Client({ disableEveryone: true });
 zephyr.subscribe(
   [].concat.apply(
     [],
-    settings.classes.map(({ zephyrClass, zephyrRelatedClasses = [] }) =>
-      [zephyrClass, ...zephyrRelatedClasses].map(c => [c, "*", "*"])
+    settings.classes.map(({ zephyrClass, zephyrRelatedClasses = {} }) =>
+      [zephyrClass, ...Object.keys(zephyrRelatedClasses)].map(c => [
+        c,
+        "*",
+        "*"
+      ])
     )
   ),
   err => {
@@ -42,19 +88,12 @@ client.on("ready", () => {
     for (const {
       zephyrClass,
       discordServer,
-      connectionDirection,
-      zephyrRelatedClasses = []
+      connectionDirection = "",
+      zephyrRelatedClasses = {}
     } of settings.classes) {
-      if (zephyrRelatedClasses.includes(zephyrClass)) {
-        console.log(
-          `Warning! zephyr class ${zephyrClass} ` +
-            `is included with its related classes. ` +
-            `This can cause unexpected behavior.`
-        );
-      }
       if (
         connectionDirection != "<" &&
-        (zephyrClass == msg.class || zephyrRelatedClasses.includes(msg.class))
+        (zephyrClass == msg.class || msg.class in zephyrRelatedClasses)
       ) {
         for (const guild of client.guilds.values()) {
           if (discordServer == guild.name) {
@@ -92,11 +131,14 @@ client.on("ready", () => {
       return;
     }
     for (const { channel, zephyrRelatedClasses } of matching) {
-      const relatedClassPrefix = zephyrRelatedClasses.includes(msg.class)
-        ? "[-c " + msg.class + "] "
-        : "";
+      const relatedClassPrefix =
+        msg.class in zephyrRelatedClasses
+          ? zephyrRelatedClasses[msg.class]
+            ? `[${zephyrRelatedClasses[msg.class]}] `
+            : `[-c ${msg.class}] `
+          : ``;
       const instancePrefix =
-        channel.name === msg.instance ? "" : "[-i " + msg.instance + "] ";
+        channel.name === msg.instance ? `` : `[-i ${msg.instance}] `;
       const message = relatedClassPrefix + instancePrefix + msg.message;
       const webhook = await channel
         .fetchWebhooks()
@@ -125,13 +167,13 @@ client.on("message", async msg => {
   for (const {
     zephyrClass,
     discordServer,
-    connectionDirection,
-    zephyrRelatedClasses
+    connectionDirection = "",
+    zephyrRelatedClasses = {}
   } of settings.classes) {
     if (connectionDirection != ">" && discordServer == msg.guild.name) {
       const prefixMatching = msg.cleanContent
         .trim()
-        .match(/^(\[-c (.*?)\] ?)?(\[-i (.*?)\] ?)?(.*)/ms);
+        .match(/^(\[(-c\s+(.*?)|[^-].*?)\]\s*)?(\[-i\s+(.*?)\]\s*)?(.*)/ms);
       if (!prefixMatching) {
         matching.push({
           zclass: zephyrClass,
@@ -140,14 +182,20 @@ client.on("message", async msg => {
         });
       } else {
         matching.push({
-          zclass: zephyrRelatedClasses.includes(prefixMatching[2])
-            ? prefixMatching[2]
-            : zephyrClass,
-          zinstance: prefixMatching[4] || msg.channel.name,
+          zclass:
+            prefixMatching[3] in zephyrRelatedClasses
+              ? prefixMatching[3]
+              : Object.keys(zephyrRelatedClasses).find(
+                  cls => zephyrRelatedClasses[cls] === prefixMatching[2]
+                ) || zephyrClass,
+          zinstance: prefixMatching[5] || msg.channel.name,
           zcontent:
-            (zephyrRelatedClasses.includes(prefixMatching[2])
+            (prefixMatching[3] in zephyrRelatedClasses ||
+            Object.keys(zephyrRelatedClasses).find(
+              cls => zephyrRelatedClasses[cls] === prefixMatching[2]
+            )
               ? ""
-              : (prefixMatching[1] || "")) + prefixMatching[5]
+              : prefixMatching[1] || "") + prefixMatching[6]
         });
       }
     }

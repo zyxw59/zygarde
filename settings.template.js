@@ -15,10 +15,19 @@ module.exports.classes = [
     //   '<' means one-directional from Discord to zephyr
     // connectionDirection: '<',
 
-    // Optional: An array of related zephyr classes.
+    // Optional: An mapping of related zephyr classes.
     // These will be displayed in the same instances as the main class,
-    // but with a context-providing tag in front.
+    // but with a context-providing tag in front. The keys are the
+    // zephyr classes, and the values are the contextual tag.
+    // Make sure these are unique in the mapping, so you can use the
+    // zephyr class shorthand on the Discord side.
+    // If you don't want this behavior, leave the mapping blank.
+    // Do not start the tag with a hyphen (-).
     // Useful for unclasses and .d classes.
-    // zephyrRelatedClasses: ['unzephyr-class', 'zephyr-class.d'],
+    zephyrRelatedClasses: {
+      'unzephyr-class': 'un',
+      'zephyr-class.d': '.d',
+      'zephyr-class.auto': '',
+    },
   },
 ];
