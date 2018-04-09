@@ -47,10 +47,9 @@ client.on("ready", () => {
     } of settings.classes) {
       if (zephyrRelatedClasses.includes(zephyrClass)) {
         console.log(
-          "Warning! zephyr class " +
-            zephyrClass +
-            " is included with its related classes. " +
-            "This can cause unexpected behavior."
+          `Warning! zephyr class ${zephyrClass} ` +
+            `is included with its related classes. ` +
+            `This can cause unexpected behavior.`
         );
       }
       if (
@@ -70,6 +69,7 @@ client.on("ready", () => {
             if (channel) {
               matching.push({
                 channel,
+                discordServer,
                 zephyrRelatedClasses
               });
             }
@@ -82,6 +82,12 @@ client.on("ready", () => {
       `\x1b[35;1mZephyr:\x1b[0m ${ignore}` +
         `${msg.class} / ${msg.instance} / ${sender}`
     );
+    for (const { channel, discordServer } of matching) {
+      console.log(
+        `  > \x1b[34;1mTo Discord:\x1b[0m ` +
+          `${discordServer} / ${channel.name} / ${sender}`
+      );
+    }
     if (ignore) {
       return;
     }
@@ -119,10 +125,31 @@ client.on("message", async msg => {
   for (const {
     zephyrClass,
     discordServer,
-    connectionDirection
+    connectionDirection,
+    zephyrRelatedClasses
   } of settings.classes) {
-    if (discordServer == msg.guild.name && connectionDirection != ">") {
-      matching.push(zephyrClass);
+    if (connectionDirection != ">" && discordServer == msg.guild.name) {
+      const prefixMatching = msg.cleanContent
+        .trim()
+        .match(/^(\[-c (.*?)\] ?)?(\[-i (.*?)\] ?)?(.*)/ms);
+      if (!prefixMatching) {
+        matching.push({
+          zclass: zephyrClass,
+          zinstance: msg.channel.name,
+          zcontent: msg.cleanContent
+        });
+      } else {
+        matching.push({
+          zclass: zephyrRelatedClasses.includes(prefixMatching[2])
+            ? prefixMatching[2]
+            : zephyrClass,
+          zinstance: prefixMatching[4] || msg.channel.name,
+          zcontent:
+            (zephyrRelatedClasses.includes(prefixMatching[2])
+              ? ""
+              : (prefixMatching[1] || "")) + prefixMatching[5]
+        });
+      }
     }
   }
   const ignore = matching.length ? "" : "\x1b[31mignoring\x1b[0m ";
@@ -130,6 +157,12 @@ client.on("message", async msg => {
     `\x1b[34;1mDiscord:\x1b[0m ${ignore}` +
       `${msg.guild.name} / ${msg.channel.name} / ${sender}`
   );
+  for (const { zclass, zinstance } of matching) {
+    console.log(
+      `  > \x1b[35;1mTo Zephyr:\x1b[0m ` +
+        `${zclass} / ${zinstance} / ${sender}`
+    );
+  }
   if (ignore) {
     return;
   }
@@ -142,18 +175,18 @@ client.on("message", async msg => {
     .createInvite({ maxAge: 0 })
     .catch(err => console.error(err));
   signature.push((invite && invite.url) || "Discord");
-  const content = [];
-  if (msg.cleanContent.trim()) {
-    content.push(wordwrap(msg.cleanContent));
-  }
-  for (const attach of msg.attachments.values()) {
-    content.push(attach.url);
-  }
-  for (const zclass of matching) {
+  for (const { zclass, zinstance, zcontent } of matching) {
+    const content = [];
+    if (zcontent.trim()) {
+      content.push(wordwrap(zcontent));
+    }
+    for (const attach of msg.attachments.values()) {
+      content.push(attach.url);
+    }
     zephyr.send(
       {
         class: zclass,
-        instance: msg.channel.name,
+        instance: zinstance,
         opcode: "discord",
         sender: sender,
         message: content.join("\n"),
