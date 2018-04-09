@@ -1,7 +1,7 @@
 const zephyr = require("zephyr");
 const discord = require("discord.js");
 const wordwrap = require("wordwrap")(70);
-const settings = require(`${process.cwd()}/settings`);
+const settings = require(require("path").resolve(__dirname, 'settings'));
 
 // Validation of settings
 for (const {
@@ -11,7 +11,7 @@ for (const {
   zephyrRelatedClasses = {}
 } of settings.classes) {
   if (zephyrClass in zephyrRelatedClasses) {
-    console.log(
+    console.warn(
       `  !! Warning! zephyr class ${zephyrClass} ` +
         `is included with its related classes. ` +
         `This can cause unexpected behavior.`
@@ -23,7 +23,7 @@ for (const {
     case undefined:
       break;
     default:
-      console.log(
+      console.warn(
         `  !! Warning! Connection direction ${connectionDirection} ` +
           `is invalid. It should either be '<', '>', or missing.`
       );
@@ -35,7 +35,7 @@ for (const {
       continue;
     }
     if (classTags.includes(classTag)) {
-      console.log(
+      console.warn(
         `  !! Warning! zephyrRelatedClasses has a duplicate class tag: ` +
           `${classTag}, for class ${relatedClass}. This can cause ` +
           `unexpected behavior. Please keep the tags distinct.`
@@ -153,7 +153,46 @@ client.on("ready", () => {
   });
 });
 
-client.on("disconnect", evt => console.error(evt));
+client.on("disconnect", evt => {
+  console.error(evt);
+  if (evt.reason === 'Authentication failed.') {
+    console.warn("\n\n\n");
+    console.warn(`  ${Array(79).join('!')}`);
+    console.warn(`  ${Array(79).join('!')}`);
+    console.warn(
+      `  !! Warning! Your authentication token appears to be invalid. `
+    );
+    console.warn(
+      `  !! Most likely the issue is that you haven't followed the bot ` +
+        `creation steps.`
+    );
+    console.warn(`  !!`);
+    console.warn(
+      `  !! Go here: ` +
+        `https://discordjs.guide/#/preparations/setting-up-a-bot-application`
+    );
+    console.warn(`  !!`);
+    console.warn(`  !! Create an app and then a bot to get a token.`);
+    console.warn(`  !! Add that token into settings.js, and re-run Zygarde.`);
+    console.warn(`  !!`);
+    console.warn(
+      `  !! Also remember to add your bot to your Discord server(s):`
+    );
+    console.warn(`  !!`);
+    console.warn(
+      `  !! https://discordapp.com/oauth2/authorize` +
+        `?permissions=536890385&scope=bot&client_id=CLIENT_ID`
+    );
+    console.warn(`  !!`);
+    console.warn(
+      `  !! where CLIENT_ID is the "Client ID" from the app that you made.`
+    );
+    console.warn(`  ${Array(79).join('!')}`);
+    console.warn(`  ${Array(79).join('!')}`);
+    console.warn("\n\n\n");
+    process.exit(1);
+  }
+});
 client.on("error", evt => console.error(evt));
 client.on("warn", info => console.warn(info));
 //client.on('debug', info => console.debug(info));
