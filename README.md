@@ -4,7 +4,7 @@
 
 ## Installation
 
-Running from Athena is probably easiest. If you don't have sustained Athena access, ask dannybd to add your server + classes to his config file.
+Running Zygarde from Athena is probably easiest. If you don't have sustained Athena access, ask dannybd to add your server + classes to his config file.
 
 Adapted from justinej's notes:
 
