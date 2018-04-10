@@ -22,7 +22,7 @@ cd zygarde
 
 At this point you can run `./run` and it'll walk you through the remaining steps:
 
-* Porting over of node stuff (using hack copying I'm sorry)
+* Symlinking to node stuff
 * Running Zygarde from tmux or screen
 * Adding `settings.js` from a template
 
