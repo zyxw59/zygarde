@@ -110,6 +110,8 @@ client.on("ready", () => {
 
     // sender is of the form user@realm; grab only user
     const sender = msg.sender.split("@")[0];
+    const cls = msg.class.normalize("NFKC").toLowerCase();
+    const instance = msg.instance.normalize("NFKC").toLowerCase();
 
     // Figure out where to bridge the message to
     // {channel, discordServer, zephyrRelatedClasses}
@@ -124,7 +126,7 @@ client.on("ready", () => {
         // Don't bridge if we're not going that direction
         connectionDirection != D2Z_ONLY &&
         // Check that the message came from a class we care about
-        (zephyrClass == msg.class || msg.class in zephyrRelatedClasses)
+        (zephyrClass == cls || cls in zephyrRelatedClasses)
       ) {
         for (const guild of client.guilds.values()) {
           if (discordServer == guild.name) {
@@ -135,7 +137,7 @@ client.on("ready", () => {
               // though we ignore anything past the first dot
               channels.find(
                 chan =>
-                  chan.type == "text" && chan.name == msg.instance.split(".")[0]
+                  chan.type == "text" && chan.name == instance.split(".")[0]
               ) ||
               // If not, go for the default "join message channel"
               guild.systemChannel ||
@@ -174,21 +176,21 @@ client.on("ready", () => {
       // If the class is not the main class but a related class,
       // build the prefix for printing on the Discord side
       const relatedClassPrefix =
-        msg.class in zephyrRelatedClasses
-          ? zephyrRelatedClasses[msg.class]
-            ? `[${zephyrRelatedClasses[msg.class]}] `
+        cls in zephyrRelatedClasses
+          ? zephyrRelatedClasses[cls]
+            ? `[${zephyrRelatedClasses[cls]}] `
             : `[-c ${msg.class}] `
           : ``;
       // Do the same with the instance
       const instancePrefix =
-        channel.name === msg.instance ? `` : `[-i ${msg.instance}] `;
+        channel.name === instance ? `` : `[-i ${msg.instance}] `;
       // [tag OR -c class] [-i instance] message
       const message = relatedClassPrefix + instancePrefix + msg.message;
 
       // Send the message!
       const webhook = await channel
         .fetchWebhooks()
-        .then(hook => hook.first() || channel.createWebhook(msg.instance))
+        .then(hook => hook.first() || channel.createWebhook(instance))
         .catch(err => console.error(err));
 
       if (webhook) {
