@@ -273,16 +273,14 @@ client.on("message", async msg => {
       discordServer == msg.guild.name
     ) {
       // Use a regexp to match messages of the form
-      // [-c class] [-i instance] message, which we pass onto zephyr
+      // [tag OR -c class] [-i instance] message, which we pass onto zephyr
       // Capture groups:
-      // 1 - whole class prefix
-      // 2 - class prefix content
-      // 3 - class name
-      // 4 - whole instance prefix
-      // 5 - instance name
-      // 6 - message
-      //
-      // TODO: Use destructuring to avoid indices.
+      // 1 - whole class prefix:      [tag OR -c class]
+      // 2 - class prefix content:    tag OR -c class
+      // 3 - class name:              class
+      // 4 - whole instance prefix:   [-i instance]
+      // 5 - instance name:           instance
+      // 6 - message:                 message, which we pass onto zephyr
       const prefixMatching = msg.cleanContent
         .trim()
         .match(/^(\[(-c\s+(.*?)|[^-].*?)\]\s*)?(\[-i\s+(.*?)\]\s*)?(.*)/ms);
@@ -293,33 +291,49 @@ client.on("message", async msg => {
           zinstance: msg.channel.name,
           zcontent: msg.cleanContent
         });
-      } else {
-        // If prefixes are present, we need to work a bit to
-        // decipher them
-        matching.push({
-          zclass:
-            // If a literal class is provided, use it
-            prefixMatching[3] in zephyrRelatedClasses
-              ? prefixMatching[3]
-              : // Otherwise, use a shorthand
-                Object.keys(zephyrRelatedClasses).find(
-                  cls => zephyrRelatedClasses[cls] === prefixMatching[2]
-                ) ||
-                // or just the server name
-                zephyrClass,
-          // Literal instance, the channel name
-          zinstance: prefixMatching[5] || msg.channel.name,
-          zcontent:
-            // If an unmatched literal class was used,
-            // note it in the zephyr message
-            (prefixMatching[3] in zephyrRelatedClasses ||
-            Object.keys(zephyrRelatedClasses).find(
-              cls => zephyrRelatedClasses[cls] === prefixMatching[2]
-            )
-              ? ""
-              : prefixMatching[1] || "") + prefixMatching[6]
-        });
+        continue;
       }
+      // Destructuring as per capture groups:
+      const [
+        _entireMessage,
+        // 1 - whole class prefix:      [tag OR -c class]
+        classTagWhole,
+        // 2 - class prefix content:    tag OR -c class
+        classTagContent,
+        // 3 - class name:              class
+        classTagName,
+        // 4 - whole instance prefix:   [-i instance]
+        instanceTagWhole,
+        // 5 - instance name:           instance
+        instanceTagName,
+        // 6 - message:                 message, which we pass onto zephyr
+        restOfMessage
+      ] = prefixMatching;
+      // If prefixes are present, we need to work a bit to
+      // decipher them
+      matching.push({
+        zclass:
+          // If a literal class is provided, use it
+          classTagName in zephyrRelatedClasses
+            ? classTagName
+            : // Otherwise, use a shorthand
+              Object.keys(zephyrRelatedClasses).find(
+                cls => zephyrRelatedClasses[cls] === classTagContent
+              ) ||
+              // or just the server name
+              zephyrClass,
+        // Literal instance, the channel name
+        zinstance: instanceTagName || msg.channel.name,
+        zcontent:
+          // If an unmatched literal class was used,
+          // note it in the zephyr message
+          (classTagName in zephyrRelatedClasses ||
+          Object.keys(zephyrRelatedClasses).find(
+            cls => zephyrRelatedClasses[cls] === classTagContent
+          )
+            ? ""
+            : classTagWhole || "") + restOfMessage
+      });
     }
   }
 
