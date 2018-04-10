@@ -122,35 +122,36 @@ client.on("ready", () => {
       connectionDirection = "",
       zephyrRelatedClasses = {}
     } of settings.classes) {
-      if (
-        // Don't bridge if we're not going that direction
-        connectionDirection != D2Z_ONLY &&
-        // Check that the message came from a class we care about
-        (zephyrClass == cls || cls in zephyrRelatedClasses)
-      ) {
-        for (const guild of client.guilds.values()) {
-          if (discordServer == guild.name) {
-            // Find the right channel
-            const channels = Array.from(guild.channels.values());
-            const channel =
-              // First look for the channel matching literally,
-              // though we ignore anything past the first dot
-              channels.find(
-                chan =>
-                  chan.type == "text" && chan.name == instance.split(".")[0]
-              ) ||
-              // If not, go for the default "join message channel"
-              guild.systemChannel ||
-              // Worst case, grab the first text channel we can get
-              channels.find(chan => chan.type == "text");
-            if (channel) {
-              matching.push({
-                channel,
-                discordServer,
-                zephyrRelatedClasses
-              });
-            }
-          }
+      // Don't bridge if we're not going that direction
+      if (connectionDirection === D2Z_ONLY) {
+        continue;
+      }
+      // Check that the message came from a class we care about
+      if (zephyrClass !== cls && !(cls in zephyrRelatedClasses)) {
+        continue;
+      }
+      for (const guild of client.guilds.values()) {
+        if (discordServer !== guild.name) {
+          continue;
+        }
+        // Find the right channel
+        const channels = Array.from(guild.channels.values());
+        const channel =
+          // First look for the channel matching literally,
+          // though we ignore anything past the first dot
+          channels.find(
+            chan => chan.type == "text" && chan.name == instance.split(".")[0]
+          ) ||
+          // If not, go for the default "join message channel"
+          guild.systemChannel ||
+          // Worst case, grab the first text channel we can get
+          channels.find(chan => chan.type == "text");
+        if (channel) {
+          matching.push({
+            channel,
+            discordServer,
+            zephyrRelatedClasses
+          });
         }
       }
     }
@@ -266,75 +267,76 @@ client.on("message", async msg => {
     connectionDirection = "",
     zephyrRelatedClasses = {}
   } of settings.classes) {
-    if (
-      // Don't bridge if we're not going that direction
-      connectionDirection != Z2D_ONLY &&
-      // Also, make sure we're bridging the right server
-      discordServer == msg.guild.name
-    ) {
-      // Use a regexp to match messages of the form
-      // [tag OR -c class] [-i instance] message, which we pass onto zephyr
-      // Capture groups:
-      // 1 - whole class prefix:      [tag OR -c class]
-      // 2 - class prefix content:    tag OR -c class
-      // 3 - class name:              class
-      // 4 - whole instance prefix:   [-i instance]
-      // 5 - instance name:           instance
-      // 6 - message:                 message, which we pass onto zephyr
-      const prefixMatching = msg.cleanContent
-        .trim()
-        .match(/^(\[(-c\s+(.*?)|[^-].*?)\]\s*)?(\[-i\s+(.*?)\]\s*)?(.*)/ms);
-
-      if (!prefixMatching) {
-        matching.push({
-          zclass: zephyrClass,
-          zinstance: msg.channel.name,
-          zcontent: msg.cleanContent
-        });
-        continue;
-      }
-      // Destructuring as per capture groups:
-      const [
-        _entireMessage,
-        // 1 - whole class prefix:      [tag OR -c class]
-        classTagWhole,
-        // 2 - class prefix content:    tag OR -c class
-        classTagContent,
-        // 3 - class name:              class
-        classTagName,
-        // 4 - whole instance prefix:   [-i instance]
-        instanceTagWhole,
-        // 5 - instance name:           instance
-        instanceTagName,
-        // 6 - message:                 message, which we pass onto zephyr
-        restOfMessage
-      ] = prefixMatching;
-      // If prefixes are present, we need to work a bit to
-      // decipher them
-      matching.push({
-        zclass:
-          // If a literal class is provided, use it
-          classTagName in zephyrRelatedClasses
-            ? classTagName
-            : // Otherwise, use a shorthand
-              Object.keys(zephyrRelatedClasses).find(
-                cls => zephyrRelatedClasses[cls] === classTagContent
-              ) ||
-              // or just the server name
-              zephyrClass,
-        // Literal instance, the channel name
-        zinstance: instanceTagName || msg.channel.name,
-        zcontent:
-          // If an unmatched literal class was used,
-          // note it in the zephyr message
-          (classTagName in zephyrRelatedClasses ||
-          Object.keys(zephyrRelatedClasses).find(
-            cls => zephyrRelatedClasses[cls] === classTagContent
-          )
-            ? ""
-            : classTagWhole || "") + restOfMessage
-      });
+    // Don't bridge if we're not going that direction
+    if (connectionDirection === Z2D_ONLY) {
+      continue;
     }
+    // Also, make sure we're bridging the right server
+    if (discordServer !== msg.guild.name) {
+      continue;
+    }
+    // Use a regexp to match messages of the form
+    // [tag OR -c class] [-i instance] message, which we pass onto zephyr
+    // Capture groups:
+    // 1 - whole class prefix:      [tag OR -c class]
+    // 2 - class prefix content:    tag OR -c class
+    // 3 - class name:              class
+    // 4 - whole instance prefix:   [-i instance]
+    // 5 - instance name:           instance
+    // 6 - message:                 message, which we pass onto zephyr
+    const prefixMatching = msg.cleanContent
+      .trim()
+      .match(/^(\[(-c\s+(.*?)|[^-].*?)\]\s*)?(\[-i\s+(.*?)\]\s*)?(.*)/ms);
+
+    if (!prefixMatching) {
+      matching.push({
+        zclass: zephyrClass,
+        zinstance: msg.channel.name,
+        zcontent: msg.cleanContent
+      });
+      continue;
+    }
+    // Destructuring as per capture groups:
+    const [
+      _entireMessage,
+      // 1 - whole class prefix:      [tag OR -c class]
+      classTagWhole,
+      // 2 - class prefix content:    tag OR -c class
+      classTagContent,
+      // 3 - class name:              class
+      classTagName,
+      // 4 - whole instance prefix:   [-i instance]
+      instanceTagWhole,
+      // 5 - instance name:           instance
+      instanceTagName,
+      // 6 - message:                 message, which we pass onto zephyr
+      restOfMessage
+    ] = prefixMatching;
+    // If prefixes are present, we need to work a bit to
+    // decipher them
+    matching.push({
+      zclass:
+        // If a literal class is provided, use it
+        classTagName in zephyrRelatedClasses
+          ? classTagName
+          : // Otherwise, use a shorthand
+            Object.keys(zephyrRelatedClasses).find(
+              cls => zephyrRelatedClasses[cls] === classTagContent
+            ) ||
+            // or just the server name
+            zephyrClass,
+      // Literal instance, the channel name
+      zinstance: instanceTagName || msg.channel.name,
+      zcontent:
+        // If an unmatched literal class was used,
+        // note it in the zephyr message
+        (classTagName in zephyrRelatedClasses ||
+        Object.keys(zephyrRelatedClasses).find(
+          cls => zephyrRelatedClasses[cls] === classTagContent
+        )
+          ? ""
+          : classTagWhole || "") + restOfMessage
+    });
   }
 
   // Log what comes out, noting whether we're ignoring a message
