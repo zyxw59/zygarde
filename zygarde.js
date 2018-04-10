@@ -91,6 +91,8 @@ client.on("ready", () => {
       return;
     }
     const sender = msg.sender.split("@")[0];
+    const cls = msg.class.normalize("NFKC").toLowerCase();
+    const instance = msg.instance.normalize("NFKC").toLowerCase();
     const matching = [];
     for (const {
       zephyrClass,
@@ -100,7 +102,7 @@ client.on("ready", () => {
     } of settings.classes) {
       if (
         connectionDirection != "<" &&
-        (zephyrClass == msg.class || msg.class in zephyrRelatedClasses)
+        (zephyrClass == cls || cls in zephyrRelatedClasses)
       ) {
         for (const guild of client.guilds.values()) {
           if (discordServer == guild.name) {
@@ -108,7 +110,7 @@ client.on("ready", () => {
             const channel =
               channels.find(
                 chan =>
-                  chan.type == "text" && chan.name == msg.instance.split(".")[0]
+                  chan.type == "text" && chan.name == instance.split(".")[0]
               ) ||
               guild.systemChannel ||
               channels.find(chan => chan.type == "text");
@@ -139,17 +141,17 @@ client.on("ready", () => {
     }
     for (const { channel, zephyrRelatedClasses } of matching) {
       const relatedClassPrefix =
-        msg.class in zephyrRelatedClasses
-          ? zephyrRelatedClasses[msg.class]
-            ? `[${zephyrRelatedClasses[msg.class]}] `
+        cls in zephyrRelatedClasses
+          ? zephyrRelatedClasses[cls]
+            ? `[${zephyrRelatedClasses[cls]}] `
             : `[-c ${msg.class}] `
           : ``;
       const instancePrefix =
-        channel.name === msg.instance ? `` : `[-i ${msg.instance}] `;
+        channel.name === instance ? `` : `[-i ${msg.instance}] `;
       const message = relatedClassPrefix + instancePrefix + msg.message;
       const webhook = await channel
         .fetchWebhooks()
-        .then(hook => hook.first() || channel.createWebhook(msg.instance))
+        .then(hook => hook.first() || channel.createWebhook(instance))
         .catch(err => console.error(err));
       if (webhook) {
         webhook.send(message, { username: sender, split: true });
