@@ -21,7 +21,20 @@ module.exports.classes = [
     // Optional: connection direction.
     //   '>' means one-directional from zephyr to Discord
     //   '<' means one-directional from Discord to zephyr
+    //
     // connectionDirection: '<',
+
+    // Optional: a fallback Discord channel
+    // This is the name of your fallback Discord channel
+    // for catching incoming messages from zephyr with unassigned
+    // instances. This also adds support for "active instances":
+    // if you set an instance with [-i foobar] in this fallback channel,
+    // it will persist as the destination instance for that channel,
+    // until it changes or the bridge is restarted. Incoming zephyrgrams
+    // on other instances which land in the fallback channel will update
+    // the active instance.
+    //
+    // discordFallbackChannel: 'general',
 
     // Optional: An mapping of related zephyr classes.
     // These will be displayed in the same instances as the main class,
@@ -38,10 +51,11 @@ module.exports.classes = [
     // If you don't want this behavior, leave the mapping blank.
     // Do not start the tag with a hyphen (-).
     // Useful for unclasses and .d classes.
-    zephyrRelatedClasses: {
-      'unzephyr-class': 'un',
-      'zephyr-class.d': '.d',
-      'zephyr-class.auto': '',
-    },
+    //
+    // zephyrRelatedClasses: {
+    //   'unzephyr-class': 'un',
+    //   'zephyr-class.d': '.d',
+    //   'zephyr-class.auto': '',
+    // },
   },
 ];

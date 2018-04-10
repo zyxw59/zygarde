@@ -55,6 +55,24 @@ for (const {
   }
 }
 
+// Holds the state of which instances are active
+// on the fallback channels of the Discord servers.
+let activeInstancesForFallbackChannels = {};
+for (const { discordServer, discordFallbackChannel } of settings.classes) {
+  if (discordFallbackChannel) {
+    // Default to using the fallback channel's name as the instance.
+    activeInstancesForFallbackChannels[discordServer] = discordFallbackChannel;
+  }
+}
+
+const updateActiveInstance = (server, channel, instance) => {
+  activeInstancesForFallbackChannels[server] = instance;
+  console.log(
+    `\x1b[34;1mDiscord: ${server} #${channel}\x1b[0m ` +
+      `active instance set to: ${instance}`
+  );
+};
+
 const client = new discord.Client({ disableEveryone: true });
 
 // Subscribe to all zephyr classes, both the main bridged class and
@@ -119,7 +137,8 @@ client.on("ready", () => {
     for (const {
       zephyrClass,
       discordServer,
-      connectionDirection = "",
+      discordFallbackChannel,
+      connectionDirection,
       zephyrRelatedClasses = {}
     } of settings.classes) {
       // Don't bridge if we're not going that direction
@@ -134,22 +153,27 @@ client.on("ready", () => {
         if (discordServer !== guild.name) {
           continue;
         }
-        // Find the right channel
-        const channels = Array.from(guild.channels.values());
+        // Find the right channel (text channels only)
+        const channels = Array.from(guild.channels.values()).filter(
+          chan => chan.type === "text"
+        );
         const channel =
           // First look for the channel matching literally,
-          // though we ignore anything past the first dot
-          channels.find(
-            chan => chan.type == "text" && chan.name == instance.split(".")[0]
+          // modulo a `.d` or something appended to the end
+          channels.find(chan =>
+            new RegExp(`^${chan.name}(\\..*)?$`).test(instance)
           ) ||
+          // If not, grab the designated fallback Discord channel
+          channels.find(chan => chan.name === discordFallbackChannel) ||
           // If not, go for the default "join message channel"
           guild.systemChannel ||
           // Worst case, grab the first text channel we can get
-          channels.find(chan => chan.type == "text");
+          channels[0];
         if (channel) {
           matching.push({
             channel,
             discordServer,
+            discordFallbackChannel,
             zephyrRelatedClasses
           });
         }
@@ -173,7 +197,12 @@ client.on("ready", () => {
       return;
     }
 
-    for (const { channel, zephyrRelatedClasses } of matching) {
+    for (const {
+      channel,
+      zephyrRelatedClasses,
+      discordServer,
+      discordFallbackChannel
+    } of matching) {
       // If the class is not the main class but a related class,
       // build the prefix for printing on the Discord side
       const relatedClassPrefix =
@@ -183,8 +212,14 @@ client.on("ready", () => {
             : `[-c ${msg.class}] `
           : ``;
       // Do the same with the instance
-      const instancePrefix =
-        channel.name === instance ? `` : `[-i ${msg.instance}] `;
+      let instancePrefix = ``;
+      if (
+        channel.name !== instance &&
+        activeInstancesForFallbackChannels[discordServer] !== instance
+      ) {
+        updateActiveInstance(discordServer, discordFallbackChannel, instance);
+        instancePrefix = `[-i ${instance}] `;
+      }
       // [tag OR -c class] [-i instance] message
       const message = relatedClassPrefix + instancePrefix + msg.message;
 
@@ -264,7 +299,8 @@ client.on("message", async msg => {
   for (const {
     zephyrClass,
     discordServer,
-    connectionDirection = "",
+    discordFallbackChannel,
+    connectionDirection,
     zephyrRelatedClasses = {}
   } of settings.classes) {
     // Don't bridge if we're not going that direction
@@ -291,7 +327,10 @@ client.on("message", async msg => {
     if (!prefixMatching) {
       matching.push({
         zclass: zephyrClass,
-        zinstance: msg.channel.name,
+        zinstance:
+          msg.channel.name === discordFallbackChannel
+            ? activeInstancesForFallbackChannels[discordServer]
+            : msg.channel.name,
         zcontent: msg.cleanContent
       });
       continue;
@@ -314,29 +353,46 @@ client.on("message", async msg => {
     ] = prefixMatching;
     // If prefixes are present, we need to work a bit to
     // decipher them
-    matching.push({
-      zclass:
-        // If a literal class is provided, use it
-        classTagName in zephyrRelatedClasses
-          ? classTagName
-          : // Otherwise, use a shorthand
-            Object.keys(zephyrRelatedClasses).find(
-              cls => zephyrRelatedClasses[cls] === classTagContent
-            ) ||
-            // or just the server name
-            zephyrClass,
-      // Literal instance, the channel name
-      zinstance: instanceTagName || msg.channel.name,
-      zcontent:
-        // If an unmatched literal class was used,
-        // note it in the zephyr message
-        (classTagName in zephyrRelatedClasses ||
-        Object.keys(zephyrRelatedClasses).find(
-          cls => zephyrRelatedClasses[cls] === classTagContent
-        )
-          ? ""
-          : classTagWhole || "") + restOfMessage
-    });
+
+    // If a literal class is provided, use it
+    const zclass =
+      classTagName in zephyrRelatedClasses
+        ? classTagName
+        : // Otherwise, use a shorthand
+          Object.keys(zephyrRelatedClasses).find(
+            cls => zephyrRelatedClasses[cls] === classTagContent
+          ) ||
+          // or just the server name
+          zephyrClass;
+
+    // Literal instance, the channel name
+    let zinstance = instanceTagName || msg.channel.name;
+    if (msg.channel.name === discordFallbackChannel) {
+      // If we're on the fallback channel, use the presence of
+      // instanceTagName to update the activeInstancesForFallbackChannels
+      // and then assign zinstance accordingly
+      if (instanceTagName) {
+        updateActiveInstance(
+          discordServer,
+          discordFallbackChannel,
+          instanceTagName
+        );
+      }
+      zinstance = activeInstancesForFallbackChannels[discordServer];
+    }
+
+    // If an unmatched literal class was used,
+    // note it in the zephyr message
+    const relatedClassPrefix =
+      classTagName in zephyrRelatedClasses ||
+      Object.keys(zephyrRelatedClasses).find(
+        cls => zephyrRelatedClasses[cls] === classTagContent
+      )
+        ? ""
+        : classTagWhole || "";
+    const zcontent = relatedClassPrefix + restOfMessage;
+
+    matching.push({ zclass, zinstance, zcontent });
   }
 
   // Log what comes out, noting whether we're ignoring a message
