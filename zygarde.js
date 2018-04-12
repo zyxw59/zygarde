@@ -127,7 +127,7 @@ client.on("ready", () => {
     // - auto
     // - crypt
     // - discord-ignore
-    if (!msg.message.trim() || IGNORE_OPCODES.includes(msg.opcode)) {
+    if (!msg.message.trim() || IGNORE_OPCODES.includes(msg.opcode.toLowerCase())) {
       return;
     }
 
