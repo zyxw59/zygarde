@@ -294,6 +294,10 @@ client.on("message", async msg => {
 
   const sender = msg.member ? msg.member.displayName : msg.author.username;
 
+  // replace spaces with dashes, which matches zephyr
+  // convention
+  sender = sender.replace(/ /g, '-');
+
   // Figure out where to bridge the message to
   const matching = [];
   for (const {
