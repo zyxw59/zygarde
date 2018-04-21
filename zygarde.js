@@ -302,6 +302,89 @@ client.on("message", async msg => {
   const sender = (msg.member ? msg.member.displayName : msg.author.username)
     .replace(/ /g, '-');
 
+  // take a str, and remove all []-delimited tokens
+  // matching any of the passed regexes. stop
+  // parsing once we encounter a non whitespace, non-[
+  // character outside of a bracket
+  //
+  // regexes should be an object of the form
+  // { label: regex }. the returned prefixes will
+  // be an object of the form { label: prefix },
+  // where `prefix` is the first prefix matching `regex`.
+  // only this match is filtered from str.
+  //
+  // returns [filteredStr, prefixes]
+  function tokenizePrefixes(str, regexes) {
+    let prefixes = {};
+    let newStr = '';
+    let prefix = '';
+    let depth = 0;
+    let justFinished = false;
+    // run through the chars of str, with index;
+    // hence for-in, not for-of
+    mainLoop:
+    for (let i in str) {
+      let foundMatch = false;
+      const char = str[i];
+      switch (char) {
+        case '[':
+          depth += 1;
+          if (depth > 1) {
+            prefix += '[';
+          }
+          break;
+        case ']':
+          depth -= 1;
+          if (depth > 0) {
+            prefix += '[';
+          } else if (depth === 0) {
+            for (let label in regexes) {
+              if (label in prefixes) {
+                continue;
+              }
+              let match = prefix.match(regexes[label]);
+              if (match) {
+                prefixes[label] = match;
+                foundMatch = true;
+              }
+            }
+            if(!foundMatch) {
+              newStr += `[${prefix}]`;
+            }
+            prefix = '';
+          }
+          break;
+        case ' ': 
+          // gobble a string if we *just* matched a bracket
+          if (justFinished) {
+            break;
+          }
+          // fallthrough
+        case '\n':
+          if (depth > 0) {
+            prefix += char;
+          } else {
+            newStr += char;
+          }
+          break;
+        default:
+          if (depth > 0) {
+            prefix += char;
+          } else {
+            newStr += str.substring(i);
+            break mainLoop;
+          }
+      }
+
+      // did we *just* finish a bracket?
+      justFinished = char === ']' && depth === 0 && foundMatch;
+    }
+
+    return [newStr, prefixes]
+  }
+
+  //tokenizePrefixes('[-i inst] foo bar  baz', {inst: /-i (.+)/})
+
   // Figure out where to bridge the message to
   const matching = [];
   for (const {
@@ -311,94 +394,58 @@ client.on("message", async msg => {
     connectionDirection,
     zephyrRelatedClasses = {}
   } of settings.classes) {
+
     // Don't bridge if we're not going that direction
     if (connectionDirection === Z2D_ONLY) {
       continue;
     }
+
     // Also, make sure we're bridging the right server
     if (discordServer !== msg.guild.name) {
       continue;
     }
-    // Use a regexp to match messages of the form
-    // [tag OR -c class] [-i instance] message, which we pass onto zephyr
-    // Capture groups:
-    // 1 - whole class prefix:      [tag OR -c class]
-    // 2 - class prefix content:    tag OR -c class
-    // 3 - class name:              class
-    // 4 - whole instance prefix:   [-i instance]
-    // 5 - instance name:           instance
-    // 6 - message:                 message, which we pass onto zephyr
-    const prefixMatching = msg.cleanContent
-      .trim()
-      .match(/^(\[(-c\s+(.*?)|[^-].*?)\]\s*)?(\[-i\s+(.*?)\]\s*)?(.*)/ms);
 
-    if (!prefixMatching) {
-      matching.push({
-        zclass: zephyrClass,
-        zinstance:
-          msg.channel.name === discordFallbackChannel
-            ? activeInstancesForFallbackChannels[discordServer]
-            : msg.channel.name,
-        zcontent: msg.cleanContent
-      });
-      continue;
+    let prefixRegexes = {
+      class: /-c (.+)/,
+      instance: /-i (.+)/
+    };
+
+    // push all of the related class regexes, too
+    for (const classTagName in zephyrRelatedClasses) {
+      prefixRegexes[classTagName] = new RegExp(zephyrRelatedClasses[classTagName]);
     }
-    // Destructuring as per capture groups:
-    const [
-      _entireMessage,
-      // 1 - whole class prefix:      [tag OR -c class]
-      classTagWhole,
-      // 2 - class prefix content:    tag OR -c class
-      classTagContent,
-      // 3 - class name:              class
-      classTagName,
-      // 4 - whole instance prefix:   [-i instance]
-      instanceTagWhole,
-      // 5 - instance name:           instance
-      instanceTagName,
-      // 6 - message:                 message, which we pass onto zephyr
-      restOfMessage
-    ] = prefixMatching;
-    // If prefixes are present, we need to work a bit to
-    // decipher them
 
-    // If a literal class is provided, use it
-    const zclass =
-      classTagName in zephyrRelatedClasses
-        ? classTagName
-        : // Otherwise, use a shorthand
+    const [msgText, prefixes] = tokenizePrefixes(msg.cleanContent.trim(), prefixRegexes);
+
+    let zclass = 
+      // if a literal class is provided, use it.
+      prefixes.class 
+        ? prefixes.class[1] 
+        : // otherwise, use a shorthand
           Object.keys(zephyrRelatedClasses).find(
-            cls => zephyrRelatedClasses[cls] === classTagContent
+            cls => cls in prefixes
           ) ||
           // or just the server name
           zephyrClass;
 
     // Literal instance, the channel name
-    let zinstance = instanceTagName || msg.channel.name;
+    const literalInstance = prefixes.instance ? prefixes.instance[1] : null;
+    let zinstance = literalInstance || msg.channel.name;
     if (msg.channel.name === discordFallbackChannel) {
       // If we're on the fallback channel, use the presence of
       // instanceTagName to update the activeInstancesForFallbackChannels
       // and then assign zinstance accordingly
-      if (instanceTagName) {
+      if (literalInstance) {
         updateActiveInstance(
           discordServer,
           discordFallbackChannel,
-          instanceTagName
+          literalInstance
         );
       }
       zinstance = activeInstancesForFallbackChannels[discordServer];
     }
 
-    // If an unmatched literal class was used,
-    // note it in the zephyr message
-    const relatedClassPrefix =
-      classTagName in zephyrRelatedClasses ||
-      Object.keys(zephyrRelatedClasses).find(
-        cls => zephyrRelatedClasses[cls] === classTagContent
-      )
-        ? ""
-        : classTagWhole || "";
-    const zcontent = relatedClassPrefix + restOfMessage;
+    const zcontent = msgText;
 
     matching.push({ zclass, zinstance, zcontent });
   }
