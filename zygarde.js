@@ -114,133 +114,133 @@ client.on("ready", () => {
 
   // Bot is 'Listening to Zephyr'
   client.user.setActivity("Zephyr", { type: "LISTENING" });
+});
 
-  // Start listening to zephyr
-  zephyr.check(async (err, msg) => {
-    if (err) {
-      return console.error(err);
+// Start listening to zephyr
+zephyr.check(async (err, msg) => {
+  if (err) {
+    return console.error(err);
+  }
+  // If the message is empty, or has one of the specified opcodes, ignore it.
+  //
+  // Ignored opcodes are:
+  // - discord
+  // - auto
+  // - crypt
+  // - discord-ignore
+  if (!msg.message.trim() || IGNORE_OPCODES.includes(msg.opcode.toLowerCase())) {
+    return;
+  }
+
+  // sender is of the form user@realm; grab only user
+  const sender = msg.sender.split("@")[0];
+  const cls = msg.class.normalize("NFKC").toLowerCase();
+  const instance = msg.instance.normalize("NFKC").toLowerCase();
+
+  // Figure out where to bridge the message to
+  // {channel, discordServer, zephyrRelatedClasses}
+  const matching = [];
+  for (const {
+    zephyrClass,
+    discordServer,
+    discordFallbackChannel,
+    connectionDirection,
+    zephyrRelatedClasses = {}
+  } of settings.classes) {
+    // Don't bridge if we're not going that direction
+    if (connectionDirection === D2Z_ONLY) {
+      continue;
     }
-    // If the message is empty, or has one of the specified opcodes, ignore it.
-    //
-    // Ignored opcodes are:
-    // - discord
-    // - auto
-    // - crypt
-    // - discord-ignore
-    if (!msg.message.trim() || IGNORE_OPCODES.includes(msg.opcode.toLowerCase())) {
-      return;
+    // Check that the message came from a class we care about
+    if (zephyrClass !== cls && !(cls in zephyrRelatedClasses)) {
+      continue;
     }
-
-    // sender is of the form user@realm; grab only user
-    const sender = msg.sender.split("@")[0];
-    const cls = msg.class.normalize("NFKC").toLowerCase();
-    const instance = msg.instance.normalize("NFKC").toLowerCase();
-
-    // Figure out where to bridge the message to
-    // {channel, discordServer, zephyrRelatedClasses}
-    const matching = [];
-    for (const {
-      zephyrClass,
-      discordServer,
-      discordFallbackChannel,
-      connectionDirection,
-      zephyrRelatedClasses = {}
-    } of settings.classes) {
-      // Don't bridge if we're not going that direction
-      if (connectionDirection === D2Z_ONLY) {
+    for (const guild of client.guilds.values()) {
+      if (discordServer !== guild.name) {
         continue;
       }
-      // Check that the message came from a class we care about
-      if (zephyrClass !== cls && !(cls in zephyrRelatedClasses)) {
-        continue;
-      }
-      for (const guild of client.guilds.values()) {
-        if (discordServer !== guild.name) {
-          continue;
-        }
-        // Find the right channel (text channels only)
-        const channels = Array.from(guild.channels.values()).filter(
-          chan => chan.type === "text"
-        );
-        const channel =
-          // First look for the channel matching literally,
-          // modulo a `.d` or something appended to the end
-          channels.find(chan =>
-            new RegExp(`^${chan.name}(\\..*)?$`).test(instance)
-          ) ||
-          // If not, grab the designated fallback Discord channel
-          channels.find(chan => chan.name === discordFallbackChannel) ||
-          // If not, go for the default "join message channel"
-          guild.systemChannel ||
-          // Worst case, grab the first text channel we can get
-          channels[0];
-        if (channel) {
-          matching.push({
-            channel,
-            discordServer,
-            discordFallbackChannel,
-            zephyrRelatedClasses
-          });
-        }
-      }
-    }
-
-    // Log what comes out, noting whether we're ignoring a message
-    // due to a bad match or not
-    const ignore = matching.length ? "" : "\x1b[31mignoring\x1b[0m ";
-    console.log(
-      `\x1b[35;1mZephyr:\x1b[0m ${ignore}` +
-        `${msg.class} / ${msg.instance} / ${sender}`
-    );
-    for (const { channel, discordServer } of matching) {
-      console.log(
-        `  > \x1b[34;1mTo Discord:\x1b[0m ` +
-          `${discordServer} / ${channel.name} / ${sender}`
+      // Find the right channel (text channels only)
+      const channels = Array.from(guild.channels.values()).filter(
+        chan => chan.type === "text"
       );
-    }
-    if (ignore) {
-      return;
-    }
-
-    for (const {
-      channel,
-      zephyrRelatedClasses,
-      discordServer,
-      discordFallbackChannel
-    } of matching) {
-      // If the class is not the main class but a related class,
-      // build the prefix for printing on the Discord side
-      const relatedClassPrefix =
-        cls in zephyrRelatedClasses
-          ? zephyrRelatedClasses[cls]
-            ? `[${zephyrRelatedClasses[cls]}] `
-            : `[-c ${msg.class}] `
-          : ``;
-      // Do the same with the instance
-      let instancePrefix = ``;
-      if (
-        channel.name !== instance &&
-        activeInstancesForFallbackChannels[discordServer] !== instance
-      ) {
-        updateActiveInstance(discordServer, discordFallbackChannel, instance);
-        instancePrefix = `[-i ${instance}] `;
-      }
-      // [tag OR -c class] [-i instance] message
-      const message = relatedClassPrefix + instancePrefix + msg.message;
-
-      // Send the message!
-      const webhook = await channel
-        .fetchWebhooks()
-        .then(hook => hook.first() || channel.createWebhook(instance))
-        .catch(err => console.error(err));
-
-      if (webhook) {
-        webhook.send(message, { username: sender, split: true });
-      } else {
-        channel.send(message, { split: true });
+      const channel =
+        // First look for the channel matching literally,
+        // modulo a `.d` or something appended to the end
+        channels.find(chan =>
+          new RegExp(`^${chan.name}(\\..*)?$`).test(instance)
+        ) ||
+        // If not, grab the designated fallback Discord channel
+        channels.find(chan => chan.name === discordFallbackChannel) ||
+        // If not, go for the default "join message channel"
+        guild.systemChannel ||
+        // Worst case, grab the first text channel we can get
+        channels[0];
+      if (channel) {
+        matching.push({
+          channel,
+          discordServer,
+          discordFallbackChannel,
+          zephyrRelatedClasses
+        });
       }
     }
-  });
+  }
+
+  // Log what comes out, noting whether we're ignoring a message
+  // due to a bad match or not
+  const ignore = matching.length ? "" : "\x1b[31mignoring\x1b[0m ";
+  console.log(
+    `\x1b[35;1mZephyr:\x1b[0m ${ignore}` +
+    `${msg.class} / ${msg.instance} / ${sender}`
+  );
+  for (const { channel, discordServer } of matching) {
+    console.log(
+      `  > \x1b[34;1mTo Discord:\x1b[0m ` +
+      `${discordServer} / ${channel.name} / ${sender}`
+    );
+  }
+  if (ignore) {
+    return;
+  }
+
+  for (const {
+    channel,
+    zephyrRelatedClasses,
+    discordServer,
+    discordFallbackChannel
+  } of matching) {
+    // If the class is not the main class but a related class,
+    // build the prefix for printing on the Discord side
+    const relatedClassPrefix =
+      cls in zephyrRelatedClasses
+      ? zephyrRelatedClasses[cls]
+      ? `[${zephyrRelatedClasses[cls]}] `
+      : `[-c ${msg.class}] `
+      : ``;
+    // Do the same with the instance
+    let instancePrefix = ``;
+    if (
+      channel.name !== instance &&
+      activeInstancesForFallbackChannels[discordServer] !== instance
+    ) {
+      updateActiveInstance(discordServer, discordFallbackChannel, instance);
+      instancePrefix = `[-i ${instance}] `;
+    }
+    // [tag OR -c class] [-i instance] message
+    const message = relatedClassPrefix + instancePrefix + msg.message;
+
+    // Send the message!
+    const webhook = await channel
+      .fetchWebhooks()
+      .then(hook => hook.first() || channel.createWebhook(instance))
+      .catch(err => console.error(err));
+
+    if (webhook) {
+      webhook.send(message, { username: sender, split: true });
+    } else {
+      channel.send(message, { split: true });
+    }
+  }
 });
 
 // Spew errors in the case of an auth failure
