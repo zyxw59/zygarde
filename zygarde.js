@@ -6,6 +6,9 @@ const settings = require(require("path").resolve(__dirname, "settings"));
 const Z2D_ONLY = ">";
 const D2Z_ONLY = "<";
 
+// Opcodes to ignore
+const IGNORE_OPCODES = ["discord", "auto", "crypt", "discord-ignore"];
+
 // Validation of settings
 for (const {
   zephyrClass,
@@ -117,12 +120,14 @@ client.on("ready", () => {
     if (err) {
       return console.error(err);
     }
-    // If the message is empty, or has an opcode, ignore it.
-    // In particular, we ignore 'discord' and 'auto' opcodes.
+    // If the message is empty, or has one of the specified opcodes, ignore it.
     //
-    // TODO: make this not ignore common "human" opcodes, like
-    // TODO: 'rot13' and 'semi-bot'
-    if (!msg.message.trim() || msg.opcode) {
+    // Ignored opcodes are:
+    // - discord
+    // - auto
+    // - crypt
+    // - discord-ignore
+    if (!msg.message.trim() || IGNORE_OPCODES.includes(msg.opcode.toLowerCase())) {
       return;
     }
 
