@@ -120,12 +120,14 @@ client.on("ready", () => {
         server.patterns = [];
         server.channels = [];
       }
-      for (const { pattern, channel } of server.instanceMap) {
-        server.patterns.push(RegExp(`^(${ pattern })(\\..*)*$`));
-        const chan = textChannels.find(chan => chan.name === channel);
-        server.channels.push(chan);
-        if (chan === undefined) {
-          console.warn(`  !! Warning! channel name ${channel} not found.`);
+      if (server.instanceMap) {
+        for (const { pattern, channel } of server.instanceMap) {
+          server.patterns.push(RegExp(`^(${ pattern })(\\..*)*$`));
+          const chan = textChannels.find(chan => chan.name === channel);
+          server.channels.push(chan);
+          if (chan === undefined) {
+            console.warn(`  !! Warning! channel name ${channel} not found.`);
+          }
         }
       }
     }
