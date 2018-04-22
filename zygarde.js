@@ -58,18 +58,15 @@ for (const {
   }
 }
 
-// Holds the state of which instances are active
-// on the fallback channels of the Discord servers.
-let activeInstancesForFallbackChannels = {};
-for (const { discordServer, discordFallbackChannel } of settings.classes) {
-  if (discordFallbackChannel) {
-    // Default to using the fallback channel's name as the instance.
-    activeInstancesForFallbackChannels[discordServer] = discordFallbackChannel;
-  }
-}
+// Holds the state of which instances are active on the Discord
+// servers.
+let activeInstances = {};
 
 const updateActiveInstance = (server, channel, instance) => {
-  activeInstancesForFallbackChannels[server] = instance;
+  if (!activeInstances[server]) {
+    activeInstances[server] = {};
+  }
+  activeInstances[server][channel] = instance;
   console.log(
     `\x1b[34;1mDiscord: ${server} #${channel}\x1b[0m ` +
       `active instance set to: ${instance}`
@@ -97,24 +94,51 @@ zephyr.subscribe(
 );
 
 client.on("ready", () => {
-  // Set the bot's nickname to '-c class'
   for (const guild of client.guilds.values()) {
     const matching = settings.classes
-      .filter(({ discordServer }) => discordServer == guild.name)
-      .map(({ zephyrClass }) => zephyrClass);
+      .filter(({ discordServer }) => discordServer == guild.name);
 
-    const nickname = matching.length ? "-c " + matching.join(", ") : "";
+    // Set the bot's nickname to '-c class'
+    const nickname = matching.length
+      ? "-c " + matching.map(({ zephyrClass }) => zephyrClass).join(", ")
+      : "";
 
     // Don't bother changing the nickname if it's already correctly
     // set to what we want it to be
     if (nickname ? guild.me.nickname != nickname : guild.me.nickname) {
       guild.me.setNickname(nickname).catch(err => console.error(err));
     }
+
+    const textChannels = Array.from(guild.channels.values()).filter(
+      chan => chan.type === "text"
+    );
+
+    // Set up instance matching patterns and channels.
+    for (const server of matching) {
+      // initialize patterns and channels if necessary
+      if (!server.patterns || !server.channels) {
+        server.patterns = [];
+        server.channels = [];
+      }
+      for (const { pattern, channel } of server.instanceMap) {
+        server.patterns.push(RegExp(`^(${ pattern })(\\..*)*$`));
+        const chan = textChannels.find(chan => chan.name === channel);
+        server.channels.push(chan);
+        if (chan === undefined) {
+          console.warn(`  !! Warning! channel name ${channel} not found.`);
+        }
+      }
+    }
   }
 
   // Bot is 'Listening to Zephyr'
   client.user.setActivity("Zephyr", { type: "LISTENING" });
 });
+
+const matchChannel = (instance, patterns, channels) => {
+  const i = patterns.findIndex(pat => pat.test(instance));
+  return i === undefined ? undefined : channels[i];
+}
 
 // Start listening to zephyr
 zephyr.check(async (err, msg) => {
@@ -145,6 +169,8 @@ zephyr.check(async (err, msg) => {
     discordServer,
     discordFallbackChannel,
     connectionDirection,
+    patterns,
+    channels,
     zephyrRelatedClasses = {}
   } of settings.classes) {
     // Don't bridge if we're not going that direction
@@ -160,21 +186,23 @@ zephyr.check(async (err, msg) => {
         continue;
       }
       // Find the right channel (text channels only)
-      const channels = Array.from(guild.channels.values()).filter(
+      const textChannels = Array.from(guild.channels.values()).filter(
         chan => chan.type === "text"
       );
       const channel =
         // First look for the channel matching literally,
         // modulo a `.d` or something appended to the end
-        channels.find(chan =>
+        textChannels.find(chan =>
           new RegExp(`^${chan.name}(\\..*)?$`).test(instance)
         ) ||
+        // If not, match it against the list of patterns
+        matchChannel(instance, patterns, channels) ||
         // If not, grab the designated fallback Discord channel
-        channels.find(chan => chan.name === discordFallbackChannel) ||
+        textChannels.find(chan => chan.name === discordFallbackChannel) ||
         // If not, go for the default "join message channel"
         guild.systemChannel ||
         // Worst case, grab the first text channel we can get
-        channels[0];
+        textChannels[0];
       if (channel) {
         matching.push({
           channel,
@@ -221,9 +249,10 @@ zephyr.check(async (err, msg) => {
     let instancePrefix = ``;
     if (
       channel.name !== instance &&
-      activeInstancesForFallbackChannels[discordServer] !== instance
+      (!activeInstances[discordServer] ||
+        activeInstances[discordServer][channel.name] !== instance)
     ) {
-      updateActiveInstance(discordServer, discordFallbackChannel, instance);
+      updateActiveInstance(discordServer, channel.name, instance);
       instancePrefix = `[-i ${instance}] `;
     }
     // [tag OR -c class] [-i instance] message
@@ -430,19 +459,18 @@ client.on("message", async msg => {
 
     // Literal instance, the channel name
     const literalInstance = prefixes.instance ? prefixes.instance[1] : null;
-    let zinstance = literalInstance || msg.channel.name;
-    if (msg.channel.name === discordFallbackChannel) {
-      // If we're on the fallback channel, use the presence of
-      // instanceTagName to update the activeInstancesForFallbackChannels
-      // and then assign zinstance accordingly
-      if (literalInstance) {
-        updateActiveInstance(
-          discordServer,
-          discordFallbackChannel,
-          literalInstance
-        );
-      }
-      zinstance = activeInstancesForFallbackChannels[discordServer];
+    const zinstance = literalInstance ||
+      (activeInstances[discordServer] &&
+        activeInstances[discordServer][msg.channel.name]) ||
+      msg.channel.name;
+    // Use the presence of literalInstance to update the
+    // activeInstances.
+    if (literalInstance) {
+      updateActiveInstance(
+        discordServer,
+        msg.channel.name,
+        literalInstance
+      );
     }
 
     const zcontent = msgText;
