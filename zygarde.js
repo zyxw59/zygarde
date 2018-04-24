@@ -1,7 +1,8 @@
 const zephyr = require("zephyr");
 const discord = require("discord.js");
 const wordwrap = require("wordwrap")(70);
-const settings = require(require("path").resolve(__dirname, "settings"));
+const settingsPath = require("path").resolve(__dirname, "settings");
+let settings = require(settingsPath);
 
 const Z2D_ONLY = ">";
 const D2Z_ONLY = "<";
@@ -538,6 +539,20 @@ client.on("message", async msg => {
         if (err) console.error(err);
       }
     );
+  }
+});
+
+process.stdin.setEncoding("utf8");
+
+process.stdin.on("readable", () => {
+  const chunk = process.stdin.read();
+  if (chunk !== null && chunk.startsWith('r')) {
+    console.log("Rebooting...");
+    client.destroy().then(() => {
+      delete require.cache[require.resolve(settingsPath)];
+      settings = require(settingsPath);
+      client.login(settings.discordToken);
+    });
   }
 });
 
