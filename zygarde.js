@@ -78,21 +78,25 @@ const client = new discord.Client({ disableEveryone: true });
 
 // Subscribe to all zephyr classes, both the main bridged class and
 // its related classes, via the triplet <c,*,*>
-zephyr.subscribe(
-  [].concat.apply(
-    [],
-    settings.classes.map(({ zephyrClass, zephyrRelatedClasses = {} }) =>
-      [zephyrClass, ...Object.keys(zephyrRelatedClasses)]
+const loadSubs = (settings) => {
+  zephyr.subscribe(
+    [].concat.apply(
+      [],
+      settings.classes.map(({ zephyrClass, zephyrRelatedClasses = {} }) =>
+        [zephyrClass, ...Object.keys(zephyrRelatedClasses)]
         // Make each into a zephyr triplet
         .map(c => [c, "*", "*"])
-    )
-  ),
-  err => {
-    if (err) {
-      console.error(err);
+      )
+    ),
+    err => {
+      if (err) {
+        console.error(err);
+      }
     }
-  }
-);
+  );
+};
+
+loadSubs(settings);
 
 client.on("ready", () => {
   for (const guild of client.guilds.values()) {
@@ -551,6 +555,7 @@ process.stdin.on("readable", () => {
     client.destroy().then(() => {
       delete require.cache[require.resolve(settingsPath)];
       settings = require(settingsPath);
+      loadSubs(settings);
       client.login(settings.discordToken);
     });
   }
