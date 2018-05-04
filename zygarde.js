@@ -78,14 +78,14 @@ const client = new discord.Client({ disableEveryone: true });
 
 // Subscribe to all zephyr classes, both the main bridged class and
 // its related classes, via the triplet <c,*,*>
-const loadSubs = (settings) => {
+const loadSubs = settings => {
   zephyr.subscribe(
     [].concat.apply(
       [],
       settings.classes.map(({ zephyrClass, zephyrRelatedClasses = {} }) =>
         [zephyrClass, ...Object.keys(zephyrRelatedClasses)]
-        // Make each into a zephyr triplet
-        .map(c => [c, "*", "*"])
+          // Make each into a zephyr triplet
+          .map(c => [c, "*", "*"])
       )
     ),
     err => {
@@ -100,8 +100,9 @@ loadSubs(settings);
 
 client.on("ready", () => {
   for (const guild of client.guilds.values()) {
-    const matching = settings.classes
-      .filter(({ discordServer }) => discordServer == guild.name);
+    const matching = settings.classes.filter(
+      ({ discordServer }) => discordServer == guild.name
+    );
 
     // Set the bot's nickname to '-c class'
     const nickname = matching.length
@@ -127,7 +128,7 @@ client.on("ready", () => {
       }
       if (server.instanceMap) {
         for (const { pattern, channel } of server.instanceMap) {
-          server.patterns.push(RegExp(`^(${ pattern })(\\..*)*$`));
+          server.patterns.push(RegExp(`^(${pattern})(\\..*)*$`));
           const chan = textChannels.find(chan => chan.name === channel);
           server.channels.push(chan);
           if (chan === undefined) {
@@ -145,7 +146,7 @@ client.on("ready", () => {
 const matchChannel = (instance, patterns, channels) => {
   const i = patterns.findIndex(pat => pat.test(instance));
   return i === undefined ? undefined : channels[i];
-}
+};
 
 // Start listening to zephyr
 zephyr.check(async (err, msg) => {
@@ -159,7 +160,10 @@ zephyr.check(async (err, msg) => {
   // - auto
   // - crypt
   // - discord-ignore
-  if (!msg.message.trim() || IGNORE_OPCODES.includes(msg.opcode.toLowerCase())) {
+  if (
+    !msg.message.trim() ||
+    IGNORE_OPCODES.includes(msg.opcode.toLowerCase())
+  ) {
     return;
   }
 
@@ -226,12 +230,12 @@ zephyr.check(async (err, msg) => {
   const ignore = matching.length ? "" : "\x1b[31mignoring\x1b[0m ";
   console.log(
     `\x1b[35;1mZephyr:\x1b[0m ${ignore}` +
-    `${msg.class} / ${msg.instance} / ${sender}`
+      `${msg.class} / ${msg.instance} / ${sender}`
   );
   for (const { channel, discordServer } of matching) {
     console.log(
       `  > \x1b[34;1mTo Discord:\x1b[0m ` +
-      `${discordServer} / ${channel.name} / ${sender}`
+        `${discordServer} / ${channel.name} / ${sender}`
     );
   }
   if (ignore) {
@@ -248,10 +252,10 @@ zephyr.check(async (err, msg) => {
     // build the prefix for printing on the Discord side
     const relatedClassPrefix =
       cls in zephyrRelatedClasses
-      ? zephyrRelatedClasses[cls]
-      ? `[${zephyrRelatedClasses[cls]}] `
-      : `[-c ${msg.class}] `
-      : ``;
+        ? zephyrRelatedClasses[cls]
+          ? `[${zephyrRelatedClasses[cls]}] `
+          : `[-c ${msg.class}] `
+        : ``;
     // Do the same with the instance
     let instancePrefix = ``;
     if (
@@ -335,8 +339,10 @@ client.on("message", async msg => {
 
   // replace spaces with dashes, which matches zephyr
   // convention
-  const sender = (msg.member ? msg.member.displayName : msg.author.username)
-    .replace(/ /g, '-');
+  const sender = (msg.member
+    ? msg.member.displayName
+    : msg.author.username
+  ).replace(/ /g, "-");
 
   // take a str, and remove all []-delimited tokens
   // matching any of the passed regexes. stop
@@ -352,27 +358,26 @@ client.on("message", async msg => {
   // returns [filteredStr, prefixes]
   function tokenizePrefixes(str, regexes) {
     let prefixes = {};
-    let newStr = '';
-    let prefix = '';
+    let newStr = "";
+    let prefix = "";
     let depth = 0;
     let justFinished = false;
     // run through the chars of str, with index;
     // hence for-in, not for-of
-    mainLoop:
-    for (let i in str) {
+    mainLoop: for (let i in str) {
       let foundMatch = false;
       const char = str[i];
       switch (char) {
-        case '[':
+        case "[":
           depth += 1;
           if (depth > 1) {
-            prefix += '[';
+            prefix += "[";
           }
           break;
-        case ']':
+        case "]":
           depth -= 1;
           if (depth > 0) {
-            prefix += '[';
+            prefix += "[";
           } else if (depth === 0) {
             for (let label in regexes) {
               if (label in prefixes) {
@@ -384,19 +389,19 @@ client.on("message", async msg => {
                 foundMatch = true;
               }
             }
-            if(!foundMatch) {
+            if (!foundMatch) {
               newStr += `[${prefix}]`;
             }
-            prefix = '';
+            prefix = "";
           }
           break;
-        case ' ': 
+        case " ":
           // gobble a string if we *just* matched a bracket
           if (justFinished) {
             break;
           }
-          // fallthrough
-        case '\n':
+        // fallthrough
+        case "\n":
           if (depth > 0) {
             prefix += char;
           } else {
@@ -413,10 +418,10 @@ client.on("message", async msg => {
       }
 
       // did we *just* finish a bracket?
-      justFinished = char === ']' && depth === 0 && foundMatch;
+      justFinished = char === "]" && depth === 0 && foundMatch;
     }
 
-    return [newStr, prefixes]
+    return [newStr, prefixes];
   }
 
   //tokenizePrefixes('[-i inst] foo bar  baz', {inst: /-i (.+)/})
@@ -430,7 +435,6 @@ client.on("message", async msg => {
     connectionDirection,
     zephyrRelatedClasses = {}
   } of settings.classes) {
-
     // Don't bridge if we're not going that direction
     if (connectionDirection === Z2D_ONLY) {
       continue;
@@ -448,36 +452,39 @@ client.on("message", async msg => {
 
     // push all of the related class regexes, too
     for (const classTagName in zephyrRelatedClasses) {
-      prefixRegexes[classTagName] = new RegExp(zephyrRelatedClasses[classTagName].replace(/[.*+?^${}()\[\]|\\]/g, '\\$&'));
+      prefixRegexes[classTagName] = new RegExp(
+        zephyrRelatedClasses[classTagName].replace(
+          /[.*+?^${}()\[\]|\\]/g,
+          "\\$&"
+        )
+      );
     }
 
-    const [msgText, prefixes] = tokenizePrefixes(msg.cleanContent.trim(), prefixRegexes);
+    const [msgText, prefixes] = tokenizePrefixes(
+      msg.cleanContent.trim(),
+      prefixRegexes
+    );
 
-    let zclass = 
+    let zclass =
       // if a literal class is provided, use it.
-      prefixes.class 
-        ? prefixes.class[1] 
+      prefixes.class
+        ? prefixes.class[1]
         : // otherwise, use a shorthand
-          Object.keys(zephyrRelatedClasses).find(
-            cls => cls in prefixes
-          ) ||
+          Object.keys(zephyrRelatedClasses).find(cls => cls in prefixes) ||
           // or just the server name
           zephyrClass;
 
     // Literal instance, the channel name
     const literalInstance = prefixes.instance ? prefixes.instance[1] : null;
-    const zinstance = literalInstance ||
+    const zinstance =
+      literalInstance ||
       (activeInstances[discordServer] &&
         activeInstances[discordServer][msg.channel.name]) ||
       msg.channel.name;
     // Use the presence of literalInstance to update the
     // activeInstances.
     if (literalInstance) {
-      updateActiveInstance(
-        discordServer,
-        msg.channel.name,
-        literalInstance
-      );
+      updateActiveInstance(discordServer, msg.channel.name, literalInstance);
     }
 
     const zcontent = msgText;
@@ -550,7 +557,7 @@ process.stdin.setEncoding("utf8");
 
 process.stdin.on("readable", () => {
   const chunk = process.stdin.read();
-  if (chunk !== null && chunk.startsWith('r')) {
+  if (chunk !== null && chunk.startsWith("r")) {
     console.log("Rebooting...");
     client.destroy().then(() => {
       delete require.cache[require.resolve(settingsPath)];
