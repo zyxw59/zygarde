@@ -255,9 +255,9 @@ zephyr.check(async (err, msg) => {
     // Do the same with the instance
     let instancePrefix = ``;
     if (
-      channel.name !== instance &&
-      (!activeInstances[discordServer] ||
-        activeInstances[discordServer][channel.name] !== instance)
+      (activeInstances[discordServer]
+        ? activeInstances[discordServer][channel.name]
+        : channel.name) !== instance
     ) {
       updateActiveInstance(discordServer, channel.name, instance);
       instancePrefix = `[-i ${instance}] `;
