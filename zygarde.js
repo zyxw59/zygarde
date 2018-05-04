@@ -448,7 +448,7 @@ client.on("message", async msg => {
 
     // push all of the related class regexes, too
     for (const classTagName in zephyrRelatedClasses) {
-      prefixRegexes[classTagName] = new RegExp(zephyrRelatedClasses[classTagName]);
+      prefixRegexes[classTagName] = new RegExp(zephyrRelatedClasses[classTagName].replace(/[.*+?^${}()\[\]|\\]/g, '\\$&'));
     }
 
     const [msgText, prefixes] = tokenizePrefixes(msg.cleanContent.trim(), prefixRegexes);
