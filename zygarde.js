@@ -160,11 +160,16 @@ zephyr.check(async (err, msg) => {
   // - auto
   // - crypt
   // - discord-ignore
+  let message = msg.message;
   if (
-    !msg.message.trim() ||
+    !message.trim() ||
     IGNORE_OPCODES.includes(msg.opcode.toLowerCase())
   ) {
     return;
+  }
+
+  if (msg.opcode.toLowerCase() == "rot13") {
+    message = "||" + rot13(message) + "||";
   }
 
   // sender is of the form user@realm; grab only user
@@ -267,7 +272,7 @@ zephyr.check(async (err, msg) => {
       instancePrefix = `[-i ${instance}] `;
     }
     // [tag OR -c class] [-i instance] message
-    const message = relatedClassPrefix + instancePrefix + msg.message;
+    message = relatedClassPrefix + instancePrefix + message;
 
     // Send the message!
     const webhook = await channel
@@ -487,7 +492,7 @@ client.on("message", async msg => {
       updateActiveInstance(discordServer, msg.channel.name, literalInstance);
     }
 
-    const zcontent = msgText;
+    const zcontent = parseSpoilers(msgText);
 
     matching.push({ zclass, zinstance, zcontent });
   }
@@ -552,6 +557,94 @@ client.on("message", async msg => {
     );
   }
 });
+
+function parseSpoilers(msg) {
+  let pipe_one = false;
+  let escape = false;
+  let code = false;
+  let spoiler = false;
+  let substrings = [0];
+  for (let i in msg) {
+    const char = msg[i]
+    // this isn't a perfectly accurate model, but it probably doesn't have any
+    // false negatives
+    switch (char) {
+      case "\\":
+        escape = !escape;
+        pipe_one = false;
+        break;
+      case "`":
+        if (code) {
+          code = false;
+        } else if (!escape && !spoiler) {
+          code = true;
+        }
+        escape = false;
+        break;
+      case "|":
+        if (spoiler) {
+          if (pipe_one) {
+            pipe_one = false;
+            spoiler = false;
+            substrings.push(i);
+          } else {
+            pipe_one = true;
+          }
+        } else {
+          if (pipe_one) {
+            pipe_one = false;
+            spoiler = true;
+            substrings.push(i);
+          } else if (!escape && !code) {
+            pipe_one = true;
+          }
+        }
+        escape = false;
+        break;
+      default:
+        escape = false;
+        break;
+    }
+  }
+
+  const newMsg = [];
+  let i = 2;
+  for (; i < substrings.length; i += 2) {
+    let plain_sec = msg.substring(substrings[i-2], substrings[i-1]);
+    let spoiler_sec = msg.substring(substrings[i-1], substrings[i]);
+    newMsg.push(plain_sec);
+    newMsg.push(rot13(spoiler_sec));
+  }
+  if (i == substrings.length) {
+    // the last spoiler was incomplete; add the preceding plaintext and the
+    // spoiler, all as plaintext
+    newMsg.push(msg.substring(substrings[i-2]));
+  } else {
+    // went all the way to the end; just add the plaintext after the last
+    // spoiler
+    newMsg.push(msg.substring(substrings[i-2]));
+  }
+
+  return newMsg.join("");
+}
+
+function rot13(text) {
+  let rotated = "";
+  for (const i in text) {
+    let ch = text.charCodeAt(i);
+    if ((65 <= ch && ch <= 77) || (97 <= ch && ch <= 109)) {
+      // first half alphabet; increase by 13
+      rotated += String.fromCharCode(ch + 13);
+    } else if ((78 <= ch && ch <= 90) || (110 <= ch && ch <= 122)) {
+      // second half alphabet; decrease by 13
+      rotated += String.fromCharCode(ch - 13);
+    } else {
+      // nonalphabetic; no change
+      rotated += String.fromCharCode(ch);
+    }
+  }
+  return rotated;
+}
 
 process.stdin.setEncoding("utf8");
 
