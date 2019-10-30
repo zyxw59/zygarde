@@ -518,9 +518,16 @@ client.on("message", async msg => {
   const signature = [];
 
   // What activity is the user doing?
-  const game = (msg.member || msg.author).presence.game;
-  if (game && (game.url || game.name)) {
-    signature.push(game.url || game.name);
+  const { game, status } = (msg.member || msg.author).presence;
+  if (game) {
+    if (game.type != 4) { signature.push(game.name); }
+    if (game.state) { signature.push(game.state); }
+    if (game.details) { signature.push(game.details); }
+    if (game.url) { signature.push(game.url); }
+  }
+
+  if (status && !["online", "idle", "offline", "dnd"].includes(status)) {
+    signature.push(status);
   }
 
   // Prepare an eternal invitation to put in the zsig
